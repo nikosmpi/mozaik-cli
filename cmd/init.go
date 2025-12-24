@@ -3,29 +3,33 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/nikosmpi/mozaik-cli/wpconfig"
 	"github.com/spf13/cobra"
 )
 
-// initCmd represents the init command
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the project",
 	Long:  `Initialize the project by creating necessary configuration files and directories.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
+		tf, err := wpconfig.SaveConfig()
+		if err != nil {
+			fmt.Println("Error saving config:", err)
+			return
+		}
+		if tf {
+			fmt.Println("moz-config.json created")
+			if err := wpconfig.AddGitignore(); err != nil {
+				fmt.Println("Error adding gitignore:", err)
+				return
+			}
+			fmt.Println("moz-config.json added to gitignore")
+			return
+		}
+		fmt.Println("moz-config.json already exists")
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// initCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// initCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
