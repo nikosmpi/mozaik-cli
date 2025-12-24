@@ -15,7 +15,7 @@ func LocalDB(config wpconfig.WPConfig) (*sql.DB, error) {
 		config.DBHost,
 		config.DBName,
 	)
-	db, err := sql.Open("sql", dsn)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
