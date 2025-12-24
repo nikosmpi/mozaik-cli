@@ -29,11 +29,10 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 }
 
 func SyncStagingToLocal(config wpconfig.WPConfig) error {
-	localMysqlPath := `C:\Programs\wamp64\bin\mysql\mysql9.1.0\bin\mysql.exe`
+	localMysqlPath := config.MySQLPath
 	if _, err := os.Stat(localMysqlPath); os.IsNotExist(err) {
-		localMysqlPath = "mysql" // Try default path if hardcoded one fails
+		localMysqlPath = "mysql"
 	}
-
 	key, err := os.ReadFile(config.Staging.SSHKeyPath)
 	if err != nil {
 		return fmt.Errorf("Δεν βρέθηκε το SSH key: %v", err)

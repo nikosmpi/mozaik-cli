@@ -1,6 +1,7 @@
 package wpconfig
 
 type WPConfig struct {
+	MySQLPath   string    `json:"MySQLPath"`
 	DBHost      string    `json:"DBHost"`
 	DBUser      string    `json:"DBUser"`
 	DBPass      string    `json:"DBPass"`

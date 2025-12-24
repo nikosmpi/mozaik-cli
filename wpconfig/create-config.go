@@ -28,7 +28,7 @@ func CreateConfig() (WPConfig, error) {
 	}
 	config.ReplaceList = make([]Replace, 1)
 	config.ReplaceList[0] = replace
-
+	config.MySQLPath = "mysql"
 	config.Staging = Remote{
 		DBHost:     config.DBHost,
 		DBUser:     config.DBUser,
