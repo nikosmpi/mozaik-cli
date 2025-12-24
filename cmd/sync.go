@@ -19,7 +19,9 @@ var syncCmd = &cobra.Command{
 			return
 		}
 		fmt.Println(config)
-		wpdatabase.SyncStagingToLocal(config)
+		if err := wpdatabase.SyncStagingToLocal(config); err != nil {
+			fmt.Println("Error during sync:", err)
+		}
 	},
 }
 

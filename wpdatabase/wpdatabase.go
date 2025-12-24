@@ -2,64 +2,116 @@ package wpdatabase
 
 import (
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/nikosmpi/mozaik-cli/wpconfig"
 	"golang.org/x/crypto/ssh"
 )
 
-func SyncStagingToLocal(config wpconfig.WPConfig) {
+type progressWriter struct {
+	Total      int64
+	Downloaded int64
+}
+
+func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	n = len(p)
+	pw.Downloaded += int64(n)
+	if pw.Total > 0 {
+		percentage := float64(pw.Downloaded) / float64(pw.Total) * 100
+		fmt.Printf("\rΣυγχρονισμός: %.2f%% (%.2f MB / %.2f MB)", percentage, float64(pw.Downloaded)/(1024*1024), float64(pw.Total)/(1024*1024))
+	} else {
+		fmt.Printf("\rΣυγχρονισμός: %.2f MB", float64(pw.Downloaded)/(1024*1024))
+	}
+	return n, nil
+}
+
+func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	localMysqlPath := `C:\Programs\wamp64\bin\mysql\mysql9.1.0\bin\mysql.exe`
+	if _, err := os.Stat(localMysqlPath); os.IsNotExist(err) {
+		localMysqlPath = "mysql" // Try default path if hardcoded one fails
+	}
+
 	key, err := os.ReadFile(config.Staging.SSHKeyPath)
 	if err != nil {
-		log.Fatalf("Δεν βρέθηκε το SSH key: %v", err)
+		return fmt.Errorf("Δεν βρέθηκε το SSH key: %v", err)
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		log.Fatalf("Λάθος στο SSH key: %v", err)
+		return fmt.Errorf("Λάθος στο SSH key: %v", err)
 	}
 	sshConfig := &ssh.ClientConfig{
 		User:            config.Staging.SSHUser,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
-	client, err := ssh.Dial("tcp", config.Staging.SSHHost, sshConfig)
+
+	sshHost := config.Staging.SSHHost
+	if !strings.Contains(sshHost, ":") {
+		sshHost += ":22"
+	}
+
+	client, err := ssh.Dial("tcp", sshHost, sshConfig)
 	if err != nil {
-		log.Fatalf("Αποτυχία σύνδεσης στον Server: %v", err)
+		return fmt.Errorf("Αποτυχία σύνδεσης στον Server: %v", err)
 	}
 	defer client.Close()
+
+	// Get DB size for progress
+	var dbSize int64
+	sizeSession, err := client.NewSession()
+	if err == nil {
+		defer sizeSession.Close()
+		sizeCmd := fmt.Sprintf("mysql -u%s -p%s -e \"SELECT SUM(data_length + index_length) FROM information_schema.TABLES WHERE table_schema = '%s'\" -sN",
+			config.Staging.DBUser, config.Staging.DBPass, config.Staging.DBName)
+		out, err := sizeSession.Output(sizeCmd)
+		if err == nil {
+			fmt.Sscanf(string(out), "%d", &dbSize)
+		}
+	}
+
 	session, err := client.NewSession()
 	if err != nil {
-		log.Fatalf("Αποτυχία SSH Session: %v", err)
+		return fmt.Errorf("Αποτυχία SSH Session: %v", err)
 	}
 	defer session.Close()
+
 	remoteCmd := fmt.Sprintf("mysqldump -u%s -p%s --single-transaction --quick --add-drop-table %s",
 		config.Staging.DBUser, config.Staging.DBPass, config.Staging.DBName)
+
 	remoteReader, err := session.StdoutPipe()
 	if err != nil {
-		log.Fatalf("Δεν μπορώ να πάρω το pipe εξόδου: %v", err)
+		return fmt.Errorf("Δεν μπορώ να πάρω το pipe εξόδου: %v", err)
 	}
-	session.Stderr = log.Writer()
+	session.Stderr = os.Stderr
+
 	var args []string
 	args = append(args, fmt.Sprintf("-u%s", config.DBUser))
 	if config.DBPass != "" {
 		args = append(args, fmt.Sprintf("-p%s", config.DBPass))
 	}
 	args = append(args, config.DBName)
+
 	localCmd := exec.Command(localMysqlPath, args...)
-	localCmd.Stdin = remoteReader
-	localCmd.Stderr = log.Writer()
+
+	pw := &progressWriter{Total: dbSize}
+	localCmd.Stdin = io.TeeReader(remoteReader, pw)
+	localCmd.Stderr = os.Stderr
+
 	fmt.Println("Ξεκινάει ο συγχρονισμός...")
 	if err := localCmd.Start(); err != nil {
-		log.Fatalf("Δεν μπόρεσε να ξεκινήσει η τοπική MySQL (τσέκαρε το path): %v", err)
+		return fmt.Errorf("Δεν μπόρεσε να ξεκινήσει η τοπική MySQL (τσέκαρε το path): %v", err)
 	}
+
 	if err := session.Run(remoteCmd); err != nil {
-		log.Fatalf("Σφάλμα κατά το remote dump: %v", err)
+		return fmt.Errorf("Σφάλμα κατά το remote dump: %v", err)
 	}
+
 	if err := localCmd.Wait(); err != nil {
-		log.Fatalf("Σφάλμα κατά την τοπική εγγραφή (Import): %v", err)
+		return fmt.Errorf("Σφάλμα κατά την τοπική εγγραφή (Import): %v", err)
 	}
-	fmt.Println("Ο συγχρονισμός ολοκληρώθηκε επιτυχώς!")
+	fmt.Println("\nΟ συγχρονισμός ολοκληρώθηκε επιτυχώς!")
+	return nil
 }
