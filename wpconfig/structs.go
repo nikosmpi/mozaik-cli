@@ -10,6 +10,7 @@ type WPConfig struct {
 	Staging     Remote    `json:"Staging"`
 	ReplaceList []Replace `json:"ReplaceList"`
 }
+
 type Remote struct {
 	DBHost     string `json:"DBHost"`
 	DBUser     string `json:"DBUser"`
