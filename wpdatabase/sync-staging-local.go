@@ -25,9 +25,9 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 	pw.Downloaded += int64(n)
 	if pw.Total > 0 {
 		percentage := float64(pw.Downloaded) / float64(pw.Total) * 100
-		fmt.Printf("\rΣυγχρονισμός: %.2f%% (%.2f MB / %.2f MB)", percentage, float64(pw.Downloaded)/(1024*1024), float64(pw.Total)/(1024*1024))
+		fmt.Printf("\rSyncing: %.2f%% (%.2f MB / %.2f MB)", percentage, float64(pw.Downloaded)/(1024*1024), float64(pw.Total)/(1024*1024))
 	} else {
-		fmt.Printf("\rΣυγχρονισμός: %.2f MB", float64(pw.Downloaded)/(1024*1024))
+		fmt.Printf("\rSyncing: %.2f MB", float64(pw.Downloaded)/(1024*1024))
 	}
 	return n, nil
 }
@@ -56,11 +56,11 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	}
 	key, err := os.ReadFile(config.Staging.SSHKeyPath)
 	if err != nil {
-		return fmt.Errorf("Δεν βρέθηκε το SSH key: %v", err)
+		return fmt.Errorf("SSH key not found: %v", err)
 	}
 	signer, err := ssh.ParsePrivateKey(key)
 	if err != nil {
-		return fmt.Errorf("Λάθος στο SSH key: %v", err)
+		return fmt.Errorf("Error in SSH key: %v", err)
 	}
 	sshConfig := &ssh.ClientConfig{
 		User:            config.Staging.SSHUser,
@@ -75,7 +75,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	client, err := ssh.Dial("tcp", sshHost, sshConfig)
 	if err != nil {
-		return fmt.Errorf("Αποτυχία σύνδεσης στον Server: %v", err)
+		return fmt.Errorf("Failed to connect to Server: %v", err)
 	}
 	defer client.Close()
 
@@ -95,7 +95,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	session, err := client.NewSession()
 	if err != nil {
-		return fmt.Errorf("Αποτυχία SSH Session: %v", err)
+		return fmt.Errorf("SSH Session failed: %v", err)
 	}
 	defer session.Close()
 
@@ -104,7 +104,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	remoteReader, err := session.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("Δεν μπορώ να πάρω το pipe εξόδου: %v", err)
+		return fmt.Errorf("Cannot get stdout pipe: %v", err)
 	}
 	session.Stderr = &warningFilter{Writer: os.Stderr}
 
@@ -122,23 +122,23 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	localCmd.Stdin = io.TeeReader(remoteReader, pw)
 	localCmd.Stderr = &warningFilter{Writer: os.Stderr}
 
-	fmt.Println("Ξεκινάει ο συγχρονισμός...")
+	fmt.Println("Starting sync...")
 	if err := localCmd.Start(); err != nil {
-		return fmt.Errorf("Δεν μπόρεσε να ξεκινήσει η τοπική MySQL (τσέκαρε το path): %v", err)
+		return fmt.Errorf("Could not start local MySQL (check path): %v", err)
 	}
 
 	if err := session.Run(remoteCmd); err != nil {
-		return fmt.Errorf("Σφάλμα κατά το remote dump: %v", err)
+		return fmt.Errorf("Error during remote dump: %v", err)
 	}
 
 	if err := localCmd.Wait(); err != nil {
-		return fmt.Errorf("Σφάλμα κατά την τοπική εγγραφή (Import): %v", err)
+		return fmt.Errorf("Error during local import: %v", err)
 	}
 
 	// Force 100% progress display
 	if dbSize > 0 {
-		fmt.Printf("\rΣυγχρονισμός: 100.00%% (%.2f MB / %.2f MB)", float64(pw.Downloaded)/(1024*1024), float64(pw.Downloaded)/(1024*1024))
+		fmt.Printf("\rSyncing: 100.00%% (%.2f MB / %.2f MB)", float64(pw.Downloaded)/(1024*1024), float64(pw.Downloaded)/(1024*1024))
 	}
-	fmt.Println("\nΟ συγχρονισμός ολοκληρώθηκε επιτυχώς!")
+	fmt.Println("\nSync completed successfully!")
 	return nil
 }

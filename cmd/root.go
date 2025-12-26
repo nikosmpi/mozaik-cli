@@ -11,8 +11,11 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "moz",
-	Short: "A brief description of your application",
-	Long:  "A brief description of your application",
+	Short: "A CLI tool for Mozaik project management",
+	Long:  "A flexible and powerful CLI tool designed for Mozaik WordPress project synchronization and database management.",
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 }
 
 func Execute() {

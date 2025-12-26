@@ -12,7 +12,7 @@ import (
 func LocalDBReplaceInColumn(db *sql.DB, tableName string, columnName string, data wpconfig.Replace) (int64, error) {
 	pkName, err := getPrimaryKeyColumn(db, tableName)
 	if err != nil {
-		return 0, fmt.Errorf("δεν βρέθηκε primary key για τον πίνακα %s: %v", tableName, err)
+		return 0, fmt.Errorf("primary key not found for table %s: %v", tableName, err)
 	}
 	querySelect := fmt.Sprintf(
 		"SELECT `%s`, `%s` FROM `%s` WHERE `%s` LIKE ?",
@@ -21,7 +21,7 @@ func LocalDBReplaceInColumn(db *sql.DB, tableName string, columnName string, dat
 	likePattern := "%" + data.Old + "%"
 	rows, err := db.Query(querySelect, likePattern)
 	if err != nil {
-		return 0, fmt.Errorf("σφάλμα στο select: %v", err)
+		return 0, fmt.Errorf("error in select: %v", err)
 	}
 	defer rows.Close()
 	var count int64 = 0
@@ -72,7 +72,7 @@ func getPrimaryKeyColumn(db *sql.DB, tableName string) (string, error) {
 	err := db.QueryRow(query, tableName).Scan(&columnName)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", fmt.Errorf("δεν βρέθηκε primary key για τον πίνακα %s", tableName)
+			return "", fmt.Errorf("primary key not found for table %s", tableName)
 		}
 		return "", err
 	}

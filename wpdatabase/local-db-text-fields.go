@@ -14,7 +14,7 @@ func LocalDBTextFields(db *sql.DB, tableName string) ([]string, error) {
 	defer rows.Close()
 	var textFields []string
 	var field, colType, null, key string
-	var def, extra []byte // Το Default και Extra μπορεί να είναι null, οπότε τα βάζουμε ως bytes
+	var def, extra []byte // Default and Extra can be null, so we use bytes
 	for rows.Next() {
 		err := rows.Scan(&field, &colType, &null, &key, &def, &extra)
 		if err != nil {

@@ -10,8 +10,8 @@ import (
 
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "Sync the project",
-	Long:  `Sync the project by creating necessary configuration files and directories.`,
+	Short: "Sync database from staging to local",
+	Long:  `Synchronize the staging database to your local environment using SSH dump and local MySQL import.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		config, err := wpconfig.GetConfig()
 		if err != nil {

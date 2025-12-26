@@ -7,7 +7,7 @@ import (
 
 func LocalDBTables(db *sql.DB) ([]string, error) {
 	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("δεν είναι δυνατή η σύνδεση στον server: %v", err)
+		return nil, fmt.Errorf("cannot connect to server: %v", err)
 	}
 	rows, err := db.Query("SHOW TABLES")
 	if err != nil {
