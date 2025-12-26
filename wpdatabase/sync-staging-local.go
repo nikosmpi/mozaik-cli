@@ -85,8 +85,8 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	if err == nil {
 		defer sizeSession.Close()
 		sizeSession.Stderr = &warningFilter{Writer: os.Stderr}
-		sizeCmd := fmt.Sprintf("mysql -u%s -p%s -e \"SELECT SUM(data_length + index_length) FROM information_schema.TABLES WHERE table_schema = '%s'\" -sN",
-			config.Staging.DBUser, config.Staging.DBPass, config.Staging.DBName)
+		sizeCmd := fmt.Sprintf("export MYSQL_PWD='%s' && mysql -u%s -e \"SELECT SUM(data_length + index_length) FROM information_schema.TABLES WHERE table_schema = '%s'\" -sN",
+			config.Staging.DBPass, config.Staging.DBUser, config.Staging.DBName)
 		out, err := sizeSession.Output(sizeCmd)
 		if err == nil {
 			fmt.Sscanf(string(out), "%d", &dbSize)
@@ -99,8 +99,8 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	}
 	defer session.Close()
 
-	remoteCmd := fmt.Sprintf("mysqldump -u%s -p%s --single-transaction --quick --add-drop-table %s",
-		config.Staging.DBUser, config.Staging.DBPass, config.Staging.DBName)
+	remoteCmd := fmt.Sprintf("export MYSQL_PWD='%s' && mysqldump -u%s --single-transaction --quick --add-drop-table %s",
+		config.Staging.DBPass, config.Staging.DBUser, config.Staging.DBName)
 
 	remoteReader, err := session.StdoutPipe()
 	if err != nil {
@@ -110,12 +110,13 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	var args []string
 	args = append(args, fmt.Sprintf("-u%s", config.DBUser))
-	if config.DBPass != "" {
-		args = append(args, fmt.Sprintf("-p%s", config.DBPass))
-	}
+	// Removed -p to avoid warning, will use MYSQL_PWD env var
 	args = append(args, config.DBName)
 
 	localCmd := exec.Command(localMysqlPath, args...)
+	if config.DBPass != "" {
+		localCmd.Env = append(os.Environ(), "MYSQL_PWD="+config.DBPass)
+	}
 
 	pw := &progressWriter{Total: dbSize}
 	localCmd.Stdin = io.TeeReader(remoteReader, pw)
