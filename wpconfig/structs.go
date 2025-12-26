@@ -9,6 +9,8 @@ type WPConfig struct {
 	DBPrefix    string    `json:"DBPrefix"`
 	Staging     Remote    `json:"Staging"`
 	ReplaceList []Replace `json:"ReplaceList"`
+	DefaultUser string    `json:"DefaultUser"`
+	DefaultPass string    `json:"DefaultPass"`
 }
 
 type Remote struct {
