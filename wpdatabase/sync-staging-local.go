@@ -16,6 +16,10 @@ type progressWriter struct {
 	Downloaded int64
 }
 
+type warningFilter struct {
+	Writer io.Writer
+}
+
 func (pw *progressWriter) Write(p []byte) (n int, err error) {
 	n = len(p)
 	pw.Downloaded += int64(n)
@@ -26,6 +30,23 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 		fmt.Printf("\rΣυγχρονισμός: %.2f MB", float64(pw.Downloaded)/(1024*1024))
 	}
 	return n, nil
+}
+
+func (f *warningFilter) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if !strings.Contains(trimmed, "Using a password on the command line interface can be insecure") {
+			_, err := fmt.Fprintln(f.Writer, line)
+			if err != nil {
+				return 0, err
+			}
+		}
+	}
+	return len(p), nil
 }
 
 func SyncStagingToLocal(config wpconfig.WPConfig) error {
@@ -63,6 +84,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	sizeSession, err := client.NewSession()
 	if err == nil {
 		defer sizeSession.Close()
+		sizeSession.Stderr = &warningFilter{Writer: os.Stderr}
 		sizeCmd := fmt.Sprintf("mysql -u%s -p%s -e \"SELECT SUM(data_length + index_length) FROM information_schema.TABLES WHERE table_schema = '%s'\" -sN",
 			config.Staging.DBUser, config.Staging.DBPass, config.Staging.DBName)
 		out, err := sizeSession.Output(sizeCmd)
@@ -84,7 +106,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 	if err != nil {
 		return fmt.Errorf("Δεν μπορώ να πάρω το pipe εξόδου: %v", err)
 	}
-	session.Stderr = os.Stderr
+	session.Stderr = &warningFilter{Writer: os.Stderr}
 
 	var args []string
 	args = append(args, fmt.Sprintf("-u%s", config.DBUser))
@@ -97,7 +119,7 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	pw := &progressWriter{Total: dbSize}
 	localCmd.Stdin = io.TeeReader(remoteReader, pw)
-	localCmd.Stderr = os.Stderr
+	localCmd.Stderr = &warningFilter{Writer: os.Stderr}
 
 	fmt.Println("Ξεκινάει ο συγχρονισμός...")
 	if err := localCmd.Start(); err != nil {
@@ -110,6 +132,11 @@ func SyncStagingToLocal(config wpconfig.WPConfig) error {
 
 	if err := localCmd.Wait(); err != nil {
 		return fmt.Errorf("Σφάλμα κατά την τοπική εγγραφή (Import): %v", err)
+	}
+
+	// Force 100% progress display
+	if dbSize > 0 {
+		fmt.Printf("\rΣυγχρονισμός: 100.00%% (%.2f MB / %.2f MB)", float64(pw.Downloaded)/(1024*1024), float64(pw.Downloaded)/(1024*1024))
 	}
 	fmt.Println("\nΟ συγχρονισμός ολοκληρώθηκε επιτυχώς!")
 	return nil
