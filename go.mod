@@ -3,6 +3,7 @@ module github.com/nikosmpi/mozaik-cli
 go 1.25.4
 
 require (
+	github.com/elliotchance/phpserialize v1.4.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.46.0
