@@ -27,5 +27,7 @@ func GetFromWPConfigPhp(content string) (WPConfig, error) {
 	if len(prefixMatch) > 1 {
 		config.DBPrefix = prefixMatch[1]
 	}
+	config.DefaultUser = "mozaik"
+	config.DefaultPass = "password"
 	return config, nil
 }
